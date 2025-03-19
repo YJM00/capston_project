@@ -79,7 +79,7 @@ void loop() {
     delay(100);
 }
 
-// ✅ 엔코더 값을 실시간 비교하며 직진 유지
+// ✅ 1초 주행 후 1초 멈추는 방식으로 직진 유지
 void moveStraightWithCorrection(int totalDuration) {
     encoderCountM1 = 0;
     encoderCountM2 = 0;
@@ -111,7 +111,12 @@ void moveStraightWithCorrection(int totalDuration) {
         Serial.print(" | 우측 속도: ");
         Serial.println(speedRight);
 
-        delay(100);
+        delay(1000);  // 1초 주행 후 정지
+
+        // ✅ 1초 정지 후 다시 주행
+        stopRobot();
+        Serial.println("⏸ 일시 정지 (1초)");
+        delay(1000);  // 1초 대기 후 다시 이동
     }
 
     stopRobot();

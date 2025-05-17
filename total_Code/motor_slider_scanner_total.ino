@@ -11,7 +11,7 @@ MotorDriver motorDriver(MOTOR_TYPE);
 #define M3 3
 #define M4 4
 
-#define BASE_SPEED 600
+#define BASE_SPEED 700
 #define CORRECTION_INTERVAL 100
 
 // 엔코더 핀
@@ -19,7 +19,6 @@ MotorDriver motorDriver(MOTOR_TYPE);
 #define ENCODER_M2_A 3
 #define ENCODER_M3_A 4
 #define ENCODER_M4_A 5
-
 volatile long encM1 = 0, encM2 = 0, encM3 = 0, encM4 = 0;
 
 // 슬라이더 설정
@@ -45,8 +44,8 @@ bool ledState = false;
 double diff12_input = 0, output12 = 0, setpoint12 = 0;
 double diff34_input = 0, output34 = 0, setpoint34 = 0;
 
-PID pid12(&diff12_input, &output12, &setpoint12, 1.0, 0.7, 0.1, DIRECT);
-PID pid34(&diff34_input, &output34, &setpoint34, 1.0, 0.7, 0.1, DIRECT);
+PID pid12(&diff12_input, &output12, &setpoint12, 1.0, 0.5, 0.1, DIRECT);
+PID pid34(&diff34_input, &output34, &setpoint34, 1.0, 0.5, 0.1, DIRECT);
 
 // 엔코더 인터럽트
 void encoderM1() { encM1++; }
@@ -132,9 +131,10 @@ void handleSliderMovement() {
   lastButtonState = buttonState;
 }
 
-// 🚀 슬라이더 이동 함수
 void moveToWithLog(String from, String to, long target_steps) {
   isMoving = true;
+
+  stopRobot();  // ✅ 추가된 코드
 
   long steps_to_move = target_steps - current_steps;
   int dir;
@@ -172,14 +172,15 @@ void moveToWithLog(String from, String to, long target_steps) {
   Serial.println(current_steps);
 }
 
+
 // ▶ PID 보정 직진
 void moveForwardWithPID(int interval) {
   encM1 = encM2 = encM3 = encM4 = 0;
 
   int s1 = -BASE_SPEED;
   int s2 = -BASE_SPEED;
-  int s3 = BASE_SPEED + 80;
-  int s4 = BASE_SPEED + 80;
+  int s3 = BASE_SPEED + 110;
+  int s4 = BASE_SPEED + 110;
 
   diff12_input = encM1 - encM2;
   diff34_input = encM3 - encM4;

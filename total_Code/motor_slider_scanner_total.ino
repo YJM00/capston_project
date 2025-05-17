@@ -1,22 +1,20 @@
 #include <Wire.h>
-#include <MotorDriver.h>       // YFROBOT I2C #include <MotorDriver.h>       // YFROBOT I2C \u모터드라이버
-#include <PID_v1.h>            // PID 라이브러리
+#include <MotorDriver.h>
+#include <PID_v1.h>
 
-// ✅ 모터드라이버 타입 및 객체 생성
 #define MOTOR_TYPE YF_IIC_RZ
 MotorDriver motorDriver(MOTOR_TYPE);
 
-// ✅ 4륜 모터 ID 정의
-#define M1 1  // 앞 좌측
-#define M2 2  // 앞 우측
-#define M3 3  // 뒤 우측
-#define M4 4  // 뒤 좌측
+// 모터 ID 정의
+#define M1 1
+#define M2 2
+#define M3 3
+#define M4 4
 
-// ✅ 속도 설정
-#define BASE_SPEED 700
+#define BASE_SPEED 600
 #define CORRECTION_INTERVAL 100
 
-// ✅ 엔코더 핀 정의
+// 엔코더 핀
 #define ENCODER_M1_A 2
 #define ENCODER_M2_A 3
 #define ENCODER_M3_A 4
@@ -24,33 +22,33 @@ MotorDriver motorDriver(MOTOR_TYPE);
 
 volatile long encM1 = 0, encM2 = 0, encM3 = 0, encM4 = 0;
 
-// ✅ 슬라이더 설정
+// 슬라이더 설정
 #define STEP_PIN 10
 #define DIR_PIN 11
 #define BUTTON_PIN A0
 
 #define STEPS_PER_MM 400L
-#define HEIGHT_2F_MM 100
+#define HEIGHT_2F_MM 300
 #define HEIGHT_2F_STEPS (HEIGHT_2F_MM * STEPS_PER_MM)
 
 long current_steps = 0;
 bool lastButtonState = HIGH;
 bool movingTo2F = true;
-bool isSliderMoving = false;
+bool isMoving = false;  // 슬라이더 이동 중 여부
 
-// ✅ 바코드 스캐너 트랜지스터 제어
+// 바코드 스캐너 제어
 const int ledControl = 12;
 unsigned long lastToggleTime = 0;
 bool ledState = false;
 
-// ✅ PID 제어 변수 (M1-M2, M3-M4)
+// PID 변수
 double diff12_input = 0, output12 = 0, setpoint12 = 0;
 double diff34_input = 0, output34 = 0, setpoint34 = 0;
 
-PID pid12(&diff12_input, &output12, &setpoint12, 1.0, 0.5, 0.1, DIRECT);
-PID pid34(&diff34_input, &output34, &setpoint34, 1.0, 0.5, 0.1, DIRECT);
+PID pid12(&diff12_input, &output12, &setpoint12, 1.0, 0.7, 0.1, DIRECT);
+PID pid34(&diff34_input, &output34, &setpoint34, 1.0, 0.7, 0.1, DIRECT);
 
-// ✅ 인터럽트 핸들러
+// 엔코더 인터럽트
 void encoderM1() { encM1++; }
 void encoderM2() { encM2++; }
 void encoderM3() { encM3++; }
@@ -62,7 +60,6 @@ void setup() {
   motorDriver.begin();
   motorDriver.setPWMFreq(100);
 
-  // 엔코더 핀 모드
   pinMode(ENCODER_M1_A, INPUT);
   pinMode(ENCODER_M2_A, INPUT);
   pinMode(ENCODER_M3_A, INPUT);
@@ -73,13 +70,11 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ENCODER_M3_A), encoderM3, RISING);
   attachInterrupt(digitalPinToInterrupt(ENCODER_M4_A), encoderM4, RISING);
 
-  // 슬라이더 및 스캐너 핀
   pinMode(STEP_PIN, OUTPUT);
   pinMode(DIR_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(ledControl, OUTPUT);
 
-  // PID 초기화
   pid12.SetMode(AUTOMATIC);
   pid34.SetMode(AUTOMATIC);
   pid12.SetOutputLimits(-100, 100);
@@ -90,73 +85,101 @@ void setup() {
 }
 
 void loop() {
-  moveForwardWithPID(CORRECTION_INTERVAL);
+  if (!isMoving) {
+    moveForwardWithPID(CORRECTION_INTERVAL);
+  } else {
+    stopRobot();
+  }
+
   handleSliderMovement();
   handleBarcodeScannerToggle();
 }
 
-// ✅ 바코드 스캐너 ON/OFF (100ms 간격)
+// 🔦 바코드 스캐너 토글
 void handleBarcodeScannerToggle() {
   unsigned long currentTime = millis();
   if (currentTime - lastToggleTime >= 100) {
     ledState = !ledState;
     digitalWrite(ledControl, ledState ? HIGH : LOW);
     lastToggleTime = currentTime;
+
+    Serial.print("🔦 스캐너 제어 상태 (ledState): ");
+    Serial.println(ledState ? "ON (HIGH)" : "OFF (LOW)");
+
+    int actualPinState = digitalRead(ledControl);
+    Serial.print("📟 실제 D12 핀 상태: ");
+    Serial.println(actualPinState == HIGH ? "HIGH" : "LOW");
   }
 }
 
-// ✅ 슬라이더 버튼 제어
+// 🛎 슬라이더 버튼 처리
 void handleSliderMovement() {
   bool buttonState = digitalRead(BUTTON_PIN);
-  if (!isSliderMoving && lastButtonState == HIGH && buttonState == LOW) {
-    Serial.println("🛎 슬라이더 버튼 눌림 감지");
+
+  if (!isMoving && lastButtonState == HIGH && buttonState == LOW) {
+    Serial.println("🛎 슬라이더 버튼 누름 감지");
+
     if (movingTo2F) {
-      moveToWithLog("맨 아래", "2층 (10cm)", HEIGHT_2F_STEPS);
+      moveToWithLog("맨 아래", "2층 (30cm)", HEIGHT_2F_STEPS);
     } else {
-      moveToWithLog("2층 (10cm)", "맨 아래", 0);
+      moveToWithLog("2층 (30cm)", "맨 아래", 0);
     }
+
     movingTo2F = !movingTo2F;
-    delay(500);
+    delay(500);  // 디바운싱
   }
+
   lastButtonState = buttonState;
 }
 
-// ✅ 슬라이더 이동
+// 🚀 슬라이더 이동 함수
 void moveToWithLog(String from, String to, long target_steps) {
-  isSliderMoving = true;
+  isMoving = true;
+
   long steps_to_move = target_steps - current_steps;
-  int dir = steps_to_move > 0 ? HIGH : LOW;
-  steps_to_move = abs(steps_to_move);
+  int dir;
 
   Serial.println("====================================");
   Serial.print("📍 From: "); Serial.println(from);
   Serial.print("🎯 To: "); Serial.println(to);
+  Serial.print("📏 current_steps: "); Serial.println(current_steps);
+  Serial.print("📌 target_steps: "); Serial.println(target_steps);
   Serial.print("➡ 이동 스텝 수: "); Serial.println(steps_to_move);
-  Serial.println(dir == HIGH ? "↑ 위로 이동" : "↓ 아래로 이동");
+
+  if (steps_to_move > 0) {
+    dir = HIGH;
+    Serial.println("↑ 방향: 위로 이동");
+  } else {
+    dir = LOW;
+    Serial.println("↓ 방향: 아래로 이동");
+    steps_to_move = -steps_to_move;
+  }
 
   digitalWrite(DIR_PIN, dir);
+  Serial.println("🚀 슬라이더 이동 시작");
+
   for (long i = 0; i < steps_to_move; i++) {
     digitalWrite(STEP_PIN, HIGH);
-    delayMicroseconds(300);
+    delayMicroseconds(100);
     digitalWrite(STEP_PIN, LOW);
-    delayMicroseconds(300);
+    delayMicroseconds(100);
   }
 
   current_steps = target_steps;
-  isSliderMoving = false;
-  Serial.print("✅ 슬라이더 이동 완료 → 위치: ");
+  isMoving = false;
+
+  Serial.print("✅ 이동 완료 → current_steps 갱신됨: ");
   Serial.println(current_steps);
 }
 
-// ✅ PID 기반 4륜 직진 제어 (M3, M4 출력 보강)
+// ▶ PID 보정 직진
 void moveForwardWithPID(int interval) {
   encM1 = encM2 = encM3 = encM4 = 0;
 
-// ✅ M3, M4 출력 보강 
-int s1 = -BASE_SPEED;         // M1: 앞 좌
-int s2 = -BASE_SPEED;         // M2: 앞 우
-int s3 = BASE_SPEED + 100;     // M3: 뒤 우 (보강)
-int s4 = BASE_SPEED + 100;     // M4: 뒤 좌 (보강)
+  int s1 = -BASE_SPEED;
+  int s2 = -BASE_SPEED;
+  int s3 = BASE_SPEED + 80;
+  int s4 = BASE_SPEED + 80;
 
   diff12_input = encM1 - encM2;
   diff34_input = encM3 - encM4;
@@ -182,4 +205,13 @@ int s4 = BASE_SPEED + 100;     // M4: 뒤 좌 (보강)
   Serial.print(" | PID34 Out="); Serial.println(output34);
 
   delay(interval);
+}
+
+// ⏹ 전체 정지
+void stopRobot() {
+  motorDriver.setSingleMotor(M1, 0);
+  motorDriver.setSingleMotor(M2, 0);
+  motorDriver.setSingleMotor(M3, 0);
+  motorDriver.setSingleMotor(M4, 0);
+  Serial.println("⏹ 정지 완료");
 }

@@ -37,20 +37,25 @@
 ---
 
 
----
 ## 주요기술
 <img width="1733" height="536" alt="image" src="https://github.com/user-attachments/assets/28487d56-282b-43b1-bfab-f2102e77ab6a" />
 
-##  기대 효과
-- 📈 도서 관리 효율성 및 정확도 향상  
-- 👩‍🏫 사서 및 근로 학생의 업무 부담 감소  
-- ⚡ 도서 확인 업무의 자동화로 편리성 증대  
+---
+
+## 개발환경
+<img width="3351" height="1812" alt="image" src="https://github.com/user-attachments/assets/468a8c38-b5a9-4efe-823d-767c295697be" />
+
+
 
 ---
 
-##  개선 사항
-- ✅ 바코드 인식률 **99% 이상**으로 개선 예정  
-- ✅ 더 높은 책장 층까지 스캔 가능하도록 업그레이드  
+## 결론
+
+<img width="1469" height="231" alt="image" src="https://github.com/user-attachments/assets/16cb989b-3d47-4107-a789-9399e43a0a42" />
+
+
+
+
 
 ---
 

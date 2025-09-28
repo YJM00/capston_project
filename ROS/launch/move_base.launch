@@ -1,0 +1,32 @@
+<launch>
+  <!-- 1. 맵 서버 -->
+  <node pkg="map_server" type="map_server" name="map_server"
+        args="$(find my_robot)/maps/my_new3_map.yaml" />
+
+  <!-- 2. 정적 TF 설정 -->
+  <node pkg="tf" type="static_transform_publisher" name="base_to_laser"
+        args="0 0 0 0 0 0 base_link laser 100" />
+
+  <!-- 3. AMCL 노드 -->
+  <node pkg="amcl" type="amcl" name="amcl" output="screen">
+    <param name="odom_frame_id" value="odom"/>
+    <param name="base_frame_id" value="base_link"/>
+    <param name="global_frame_id" value="map"/>
+    <param name="scan_topic" value="/scan"/>
+    <param name="transform_tolerance" value="0.5" />
+  </node>
+
+  <!-- 4. move_base -->
+  <node pkg="move_base" type="move_base" name="move_base" output="screen">
+    <param name="base_global_planner" value="navfn/NavfnROS" />
+    <param name="controller_frequency" value="5.0" />
+    <rosparam file="$(find my_robot)/config/costmap_common_params.yaml" command="load" />
+    <rosparam file="$(find my_robot)/config/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find my_robot)/config/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find my_robot)/config/base_local_planner_params.yaml" command="load" />
+  </node>
+
+  <!-- 5. RViz 실행 -->
+  <node pkg="rviz" type="rviz" name="rviz"
+        args="-d $(find my_robot)/rviz/move_base_config.rviz" />
+</launch>
